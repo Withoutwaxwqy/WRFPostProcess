@@ -1,10 +1,9 @@
 # WRFPostProcess
-WRF模式后处理
 
-## 与ECMWF真实值进行比较
-
-## WRF降水评分
-
+## WRF Precipitation Scores
+Objective verification is carried out to quantitatively evaluate the impact of assimilating multi-obs
+![image](ExampleFigure/sub_plot.png)
+Fig.1 some indexs to evaluate the accuracy of prediction of precipitation
 ## WRF Geographing
 Some scripts which can draw indicators from wrfout files
 
