@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 '''
 与真实值进行比较
-@File    :   comparator.py    
+@File    :   EcComparator.py
 @Contact :   raogx.vip@hotmail.com
 @License :   (C)Copyright 2017-2018, Liugroup-NLPR-CASIA
 
@@ -20,6 +20,7 @@ import wrf_classes
 import pickle
 import plot
 import pandas as pd
+import eccodes
 
 
 def PostProcessECWRF(EC_config: dict, wrf_config: dict, element, out_path: str):
@@ -143,6 +144,7 @@ def PostProcessECWRF(EC_config: dict, wrf_config: dict, element, out_path: str):
             x_wrf = to_np(wrf.variables['XLONG'][0, :, :])  # -180 ~180
             y_wrf = to_np(wrf.variables['XLAT'][0, :, :])
             wrf_file = nc.Dataset(wrf_config['dir'])
+
             # data = getvar(wrf_file, element, units=units, timeidx=timeidx)
             if wrf_config['element'] == 'temp':
                 data = getvar(wrf_file, wrf_config['element'], units=wrf_config['units'], timeidx=wrf_config['timeidx'])
@@ -300,7 +302,7 @@ def PostProcessECWRF(EC_config: dict, wrf_config: dict, element, out_path: str):
     return 1
 
 
-def ECMWF_comparator(ECMWF_config, wrf_config, out_file, kind: str = 'linear'):
+def ECMWF_WRF_comparator(ECMWF_config, wrf_config, out_file, kind: str = 'linear'):
     """
     用于EC和WRF之间进行比较
     ECMWF_x, ECMWF_y, wrf_x, wrf_y 只需要是nc文件自带的结果就行
@@ -377,3 +379,41 @@ def ECMWF_comparator(ECMWF_config, wrf_config, out_file, kind: str = 'linear'):
     s = 1
 
     # 输出
+
+
+def ECMWF_GPSPWV_comparator(fera5, site_grid):
+    """
+    对比ECMWF在分析资料中的PWV和GNSS点的PWV值
+    :return:
+    """
+    lon_grid = site_grid["LON"]
+    lat_grid = site_grid["LAT"]
+    hgt_grid = site_grid["HEIGHT"]
+    # m, n = lon_grid.shape
+    # pwv_grid = np.zeros((m, n), dtype=float)
+    iid = eccodes.codes_index_new_from_file(fera5, keys=['shortName'])
+    vars_all = eccodes.codes_index_get(iid, key='shortName')  # all variables in the file、
+    # with open(fera5, 'rb') as f:
+    #     handle = eccodes.codes_grib_new_from_file(f, headers_only=False)
+    eccodes.codes_index_select(iid, key='shortName', value='z')
+    gidz = eccodes.codes_new_from_index(iid)
+    eccodes.codes_index_select(iid, key='shortName', value='tcwv')
+    gidpwv = eccodes.codes_new_from_index(iid)
+
+    for i in range(len(lon_grid)):
+        lon, lat, hgt = lon_grid[i], lat_grid[i], hgt_grid[i]
+        point_z   = eccodes.codes_grib_find_nearest(gidz,   lat, lon, False, 4)
+        point_pwv = eccodes.codes_grib_find_nearest(gidpwv, lat, lon, False, 4)
+
+    s = 1
+
+
+
+def Pwv_Height_correction(pwv_value, origin_height, target_height):
+    """
+    对PWV值进行高程上的改正
+    :return:
+    """
+    dif_hgt = origin_height / 9.80665 - target_height
+    era5_wv_cor = pwv_value * np.exp(0.439 * dif_hgt / 1000)
+    return era5_wv_cor

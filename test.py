@@ -8,7 +8,7 @@
 ------------       -------     --------    -----------
 2022/4/1 16:42   WangQiuyi      1.0         None
 '''
-from comparator import ECMWF_comparator
+from EcComparator import ECMWF_WRF_comparator
 from netCDF4 import Dataset
 import utils
 import wrf_classes
@@ -22,6 +22,8 @@ import numpy as np
 import plot
 import PrepScore
 import matplotlib as mpl
+import EcComparator
+
 
 mpl.rcParams["font.family"] = 'Arial'  # 默认字体类型
 mpl.rcParams["font.style"] = 'italic'
@@ -84,7 +86,7 @@ def test():
                             "stime": wrf_time.stime,
                             "etime": wrf_time.etime}
 
-            # ECMWF_comparator(ECMWF_config, wrf_config, outf)
+            # ECMWF_WRF_comparator(ECMWF_config, wrf_config, outf)
             # data = Dataset(ECf, mode='r')
             # time = data['time']
             # EC_UTC = utils.ECMWF_to_UTC(time)
@@ -136,7 +138,7 @@ def test():
             #                             "stime": wrf_time.stime,
             #                             "etime": wrf_time.etime}
             #
-            #             # ECMWF_comparator(ECMWF_config, wrf_config, outf)
+            #             # ECMWF_WRF_comparator(ECMWF_config, wrf_config, outf)
             #             # data = Dataset(ECf, mode='r')
             #             # time = data['time']
             #             # EC_UTC = utils.ECMWF_to_UTC(time)
@@ -288,9 +290,15 @@ def test_cct_verttemp_subplot():
                          savedir=r'F:\WRF\DOUBLE_V1' + '\\' + r"\ctt_vertwspdtemp_subplot")
 
 
-test()
+def test_ERA5_gird():
+    fera5 = r"F:\WRF\DOUBLE_V1\EC\pwv_z\adaptor.mars.internal-20210829-3days.grib"
+    fNorthAmSiteCoor = r"D:\acdemic\毕业论文\PWVDATA\NorthAmericanSiteCoordinate.txt"
+    SiteCoor = pd.read_csv(fNorthAmSiteCoor, sep="\s+")
+    EcComparator.ECMWF_GPSPWV_comparator(fera5, SiteCoor)
 
+
+# test()
 # test_vert_cross_sub()
-
 # ctt_sub_plot()
 # test_cct_verttemp_subplot()
+test_ERA5_gird()
