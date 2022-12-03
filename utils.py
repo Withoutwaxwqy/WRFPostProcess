@@ -13,6 +13,7 @@ import datetime as dt
 import numpy as np
 import pickle
 import os
+import pandas as pd
 
 
 def Extract_WRF_interval(wrffile):
@@ -54,7 +55,7 @@ def flood_index(x, x_range):
     return out
 
 
-def bilinear_interpolate(src, dst, wrf_config):
+def ec_wrf_bilinear_interpolate(src, dst, wrf_config):
     """
     双线性差值
     :param src:
@@ -95,6 +96,21 @@ def bilinear_interpolate(src, dst, wrf_config):
     with open(outdir, 'wb') as o:
         pickle.dump(out_dict, o)
     return out.reshape((level_num, dst.shape[1], dst.shape[2]))
+
+
+def bilinear_interpolation_for_1_point(src, dst):
+    """
+    简单的执行一下双线性差值的公式
+    :param src:
+    :param dst:
+    :return:
+    """
+    x, y, z = true_lon(src[:, 0]), src[:, 1], src[:, 2]
+    e = abs((min(x)-max(x))*(min(y)-max(y)))
+    z_dst = 0
+    for i in range(len(x)):
+        z_dst = z_dst + abs((dst[0]-x[i])*(dst[1]-y[i]))/e*z[i]
+    return z_dst
 
 
 def interpolate_3d(src, src_lat, src_lon, dst_lat, dst_lon, save_dir=None):
@@ -143,7 +159,7 @@ def interpolate_3d(src, src_lat, src_lon, dst_lat, dst_lon, save_dir=None):
         return out.reshape((level_num, dst_lon.shape[0], dst_lon.shape[1]))
 
 
-# def bilinear_interpolate(src, dst_size):
+# def ec_wrf_bilinear_interpolate(src, dst_size):
 #     height_src, width_src, channel_src = src.shape  # (h, w, ch)
 #     height_dst, width_dst = np.ravel(dst_size[0, :, :]), np.ravel(dst_size[1, :, :])  # (h, w)
 #
@@ -177,3 +193,48 @@ def gen_list_2_var(pattern, v1, v2):
         for i in v1:
             l.append(pattern.format(i, j))
     return l
+
+
+def get_grib_point_coordinates(point_tuples):
+    site_coor = np.zeros(shape=(len(point_tuples), 3))
+    site_coor[:, 0] = [each.lon for each in point_tuples]
+    site_coor[:, 1] = [each.lat for each in point_tuples]
+    site_coor[:, 2] = [each.value for each in point_tuples]
+    return site_coor
+
+
+def true_lon(lon):
+    tlon = []
+    for each in lon:
+        if 0 <= each < 180:
+            tlon.append(each)
+        else:
+            tlon.append(each -360)
+    return tlon
+
+
+def faker_lon(lon):
+    if type(lon) == pd.Series:
+        tlon = pd.Series([0]*lon.shape[0], index=lon.index)
+        for i in range(lon.shape[0]):
+            if 0 <= lon[i] < 180:
+                tlon[i] = lon[i]
+            else:
+                tlon[i] = lon[i] + 360
+        return tlon
+
+
+def GPS_site_selection(site_coor_full_list, name_list):
+    indexs = np.zeros(shape=(len(name_list)))
+    for i in range(len(name_list)):
+        try:
+            indexs[i] = np.where(site_coor_full_list == name_list[i])[0]
+        except KeyError:
+            print("KeyError occur!")
+            indexs[i] = np.NAN
+        else:
+            indexs[i] = np.where(site_coor_full_list == name_list[i])[0]
+
+
+    return indexs
+

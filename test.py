@@ -293,9 +293,17 @@ def test_cct_verttemp_subplot():
 def test_ERA5_gird():
     fera5 = r"F:\WRF\DOUBLE_V1\EC\pwv_z\adaptor.mars.internal-20210829-3days.grib"
     fNorthAmSiteCoor = r"D:\acdemic\毕业论文\PWVDATA\NorthAmericanSiteCoordinate.txt"
-    SiteCoor = pd.read_csv(fNorthAmSiteCoor, sep="\s+")
-    EcComparator.ECMWF_GPSPWV_comparator(fera5, SiteCoor)
+    FullSiteCoor = pd.read_csv(fNorthAmSiteCoor, sep="\s+")
 
+    t = utils.GPS_site_selection(FullSiteCoor["NAME"], ['MCNE', 'LSUA', 'LESV', '1ULM', 'MSME', 'KYTC'])
+    SiteCoor = FullSiteCoor.loc[t, :]
+    SiteCoor["FullIndex"] = SiteCoor.index
+    SiteCoor.index = [i for i in range(SiteCoor.shape[0])]
+
+
+    EcComparator.ECMWF_GPSPWV_comparator(fera5, SiteCoor)
+    print(t)
+    s = 1
 
 # test()
 # test_vert_cross_sub()

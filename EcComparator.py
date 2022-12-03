@@ -21,6 +21,8 @@ import pickle
 import plot
 import pandas as pd
 import eccodes
+import datetime as dt
+import xarray as xr
 
 
 def PostProcessECWRF(EC_config: dict, wrf_config: dict, element, out_path: str):
@@ -330,7 +332,7 @@ def ECMWF_WRF_comparator(ECMWF_config, wrf_config, out_file, kind: str = 'linear
     EC = EC.reshape((data['EC_date'].shape[0] + 2, data['EC_date'].shape[1], data['EC_date'].shape[2]))
     WRF = WRF_COOR.reshape((2, data['wrf_lon'].shape[0], data['wrf_lon'].shape[1]))
 
-    out = utils.bilinear_interpolate(EC, WRF, wrf_config)
+    out = utils.ec_wrf_bilinear_interpolate(EC, WRF, wrf_config)
     with open(os.path.join(os.path.split(wrf_config['dir'])[0], 'EC_in_WRF_grid.pkl'), 'rb') as o:
         out = pickle.load(o)
 
@@ -386,27 +388,56 @@ def ECMWF_GPSPWV_comparator(fera5, site_grid):
     对比ECMWF在分析资料中的PWV和GNSS点的PWV值
     :return:
     """
-    lon_grid = site_grid["LON"]
+    lon_grid = utils.faker_lon(site_grid["LON"])
     lat_grid = site_grid["LAT"]
     hgt_grid = site_grid["HEIGHT"]
-    # m, n = lon_grid.shape
-    # pwv_grid = np.zeros((m, n), dtype=float)
-    iid = eccodes.codes_index_new_from_file(fera5, keys=['shortName'])
-    vars_all = eccodes.codes_index_get(iid, key='shortName')  # all variables in the file、
-    # with open(fera5, 'rb') as f:
-    #     handle = eccodes.codes_grib_new_from_file(f, headers_only=False)
-    eccodes.codes_index_select(iid, key='shortName', value='z')
-    gidz = eccodes.codes_new_from_index(iid)
-    eccodes.codes_index_select(iid, key='shortName', value='tcwv')
-    gidpwv = eccodes.codes_new_from_index(iid)
+    name_grid = site_grid["NAME"]
 
-    for i in range(len(lon_grid)):
-        lon, lat, hgt = lon_grid[i], lat_grid[i], hgt_grid[i]
-        point_z   = eccodes.codes_grib_find_nearest(gidz,   lat, lon, False, 4)
-        point_pwv = eccodes.codes_grib_find_nearest(gidpwv, lat, lon, False, 4)
+    file_suffix = fera5.split(".")[-1]
+    if file_suffix == 'grib':
+        ds = xr.open_dataset(fera5, engine='cfgrib')
+        time = ds.variables['time']
+        pwv = ds.tcwv
+        z = ds.z
+        # lon_ecold = to_np(ds.variables['longitude'])  # 0-360
+        # lon = lon_ecold[:]
+        # lat_ecold = to_np(ds.variables['latitude'])
+        # lat = lat_ecold[:]
+        # x, y = np.meshgrid(lon, lat)
+        tgt_lon = xr.DataArray(lon_grid.values, dims='tcwv')
+        tgt_lat = xr.DataArray(lat_grid.values, dims='tcwv')
+        site_pwv = pwv.sel(longitude=tgt_lon, latitude=tgt_lat)
 
+        a = 1
+
+        # site_ec_pwv, site_ec_z = [], []
+        # # 对每个目标点进行循环
+        # for i in range(len(lon_grid)):
+        #     # 0 目标点的BLH
+        #     lon, lat, hgt = lon_grid[i], lat_grid[i], hgt_grid[i]
+        #     # 1 读取最临近的四个点的BLH，高程，PWV值
+        #     ec_z = utils.get_grib_point_coordinates(eccodes.codes_grib_find_nearest(gidz,   lat, lon, False, 4))
+        #     ec_pwv = utils.get_grib_point_coordinates(eccodes.codes_grib_find_nearest(gidpwv, lat, lon, False, 4))
+        #     # 2 双线性内插
+        #     site_ec_pwv.append(utils.bilinear_interpolation_for_1_point(ec_pwv[:, :], [lon, lat]))
+        #     site_ec_z.append(utils.bilinear_interpolation_for_1_point(ec_z[:, :], [lon, lat]))
+
+    if file_suffix == 'nc':
+        stime = dt.datetime(2021, 8, 29, 00, 00, 00)
+        ec = nc.Dataset(fera5)
+        x_ecold = to_np(ec.variables['longitude'])  # 0-360
+        x_ec = x_ecold[:] - 180
+        y_ecold = to_np(ec.variables['latitude'])
+        y_ec = y_ecold[:]
+        x_ec, y_ec = np.meshgrid(x_ec, y_ec)
+
+        time = to_np(ec.variables['time'])  #
+        EC_UTC = utils.ECMWF_to_UTC(time)
+        s = 1
+        # 提取合适的EC时间和空间区间
+        # EC_start_idx = EC_UTC.index(wrf_time.stime.strftime('%Y-%m-%d_%H_%M_%S'))
+        # EC_end_idx = EC_UTC.index(wrf_time.etime.strftime('%Y-%m-%d_%H_%M_%S'))
     s = 1
-
 
 
 def Pwv_Height_correction(pwv_value, origin_height, target_height):
